@@ -1,48 +1,43 @@
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 import pandas as pd
-import seaborn as sns
-from datetime import datetime
+import plotly.express as px
 
 dados_pastas = pd.read_csv('./data/dadosPastas.csv', sep=',')
 
-# Configure o estilo do Seaborn (opcional, mas pode melhorar a estética)
-sns.set(style="whitegrid")
+# Filtrar os dados para garantir que apenas os registros com valores de início e fim de ano sejam incluídos
+dados_pastas = dados_pastas.dropna(subset=['inicio_ano', 'fim_ano'])
 
-# Crie uma figura com as dimensões desejadas (2000x1000 pixels)
-fig, ax = plt.subplots(figsize=(20, 10))
+# Converter as colunas de início e fim de ano para o tipo de data
+dados_pastas['inicio_ano'] = pd.to_datetime(dados_pastas['inicio_ano'], format='%Y')
+dados_pastas['fim_ano'] = pd.to_datetime(dados_pastas['fim_ano'], format='%Y')
 
-# Configure o formato de data no eixo x
-ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
-ax.xaxis.set_major_locator(mdates.YearLocator())
+# Calcular a duração em anos
+dados_pastas['duracao'] = (dados_pastas['fim_ano'] - dados_pastas['inicio_ano']).dt.days / 365
 
-# Lista para armazenar os rótulos das barras
-rotulos_barras = []
+dados_txt = dados_pastas[dados_pastas['Tipo_de_arquivo'].str.contains('txt')]
 
-# Itere sobre os dados das pastas e plote as barras horizontais
-for i, pasta in enumerate(dados_pastas.itertuples()):
-    if pd.notna(pasta.inicio_ano) and pd.notna(pasta.fim_ano):
-        inicio = datetime.strptime(str(int(pasta.inicio_ano)), "%Y")
-        fim = datetime.strptime(str(int(pasta.fim_ano)), "%Y")
-        duracao = fim - inicio
-        sigla_estado = pasta.Tipo_de_arquivo.split("/")[4]
-        rotulos_barras.append(sigla_estado)
-        # Use o Matplotlib para criar as barras horizontais
-        ax.barh(sigla_estado, duracao, left=inicio)
+# Criar o gráfico de linha do tempo com Plotly Express
+fig = px.timeline(
+    dados_txt,
+    x_start='inicio_ano',
+    x_end='fim_ano',
+    y='Tipo_de_arquivo',
+    color='Tipo_de_arquivo',
+    labels={'inicio_ano': 'Início', 'fim_ano': 'Fim', 'duracao': 'Duração (Anos)'}
+)
 
-# Configure os limites do eixo x
-ax.set_xlim(datetime(1958, 1, 1), datetime(2024, 1, 1))
+# Definir as dimensões da figura (2000x1000 pixels)
+fig.update_layout(
+    autosize=False,
+    width=2000,
+    height=1000
+)
 
-# Ajuste os rótulos do eixo x para melhor visualização
-plt.xticks(rotation=45)
+# Configurar o título
+fig.update_layout(
+    title="Linhas do Tempo das Pastas",
+    xaxis_title="Ano",
+    yaxis_title="Pastas"
+)
 
-# Configure o título e os rótulos dos eixos
-plt.title("Linhas do Tempo das Pastas")
-plt.xlabel("Ano")
-plt.ylabel("Pastas")
-
-# Salvar o gráfico como uma imagem SVG
-plt.savefig("img/grafico_pastas_seaborn.svg", format="svg")
-
-# Exiba o gráfico
-plt.show()
+# Salvar o gráfico como um arquivo PNG
+fig.write_image("grafico_pastas.svg")
